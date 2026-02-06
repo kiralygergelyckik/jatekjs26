@@ -1,7 +1,7 @@
 const KARAKTER_PRESET = {
     '0': { sebesseg: 400, alapsebesseg: 400, bombaido: 3000 },
-    '1': { elet: 2, bombaido: 0 },
-    '2': { elet: 1, nagyrobbanas: true, sebesseg: 125, powerupInditas: true },
+    '1': { bombaido: 0 },
+    '2': { nagyrobbanas: true, sebesseg: 125, powerupInditas: true },
     '3': { specialisRobbanas: true, sebesseg: 140 }
 };
 
@@ -13,22 +13,23 @@ export class Beallitasok {
     megjelenitBeallitasok() {
         const ablak = this.nyitAblak(`
             <h2>Beállítások</h2>
-            <p>(bomba robbanásának sebessége, powerup esély)</p>
+            <p>(nehézség, bomba idő, pályaméret)</p>
             <div class="nehezseg-beallitasa">
-                <label for="konnyu">Könnyű</label>
-                <input type="radio" id="konnyu" name="nehezseg" value="konnyu" ${this.main.nehezseg === 'konnyu' ? 'checked' : ''}>
-            </div>
-            <div class="nehezseg-beallitasa">
-                <label for="alap">Alap</label>
-                <input type="radio" id="alap" name="nehezseg" value="alap" ${this.main.nehezseg === 'alap' ? 'checked' : ''}>
-            </div>
-            <div class="nehezseg-beallitasa">
-                <label for="nehez">Nehéz</label>
-                <input type="radio" id="nehez" name="nehezseg" value="nehez" ${this.main.nehezseg === 'nehez' ? 'checked' : ''}>
+                <label><input type="radio" name="nehezseg" value="konnyu" ${this.main.nehezseg === 'konnyu' ? 'checked' : ''}> Könnyű</label>
+                <label><input type="radio" name="nehezseg" value="alap" ${this.main.nehezseg === 'alap' ? 'checked' : ''}> Alap</label>
+                <label><input type="radio" name="nehezseg" value="nehez" ${this.main.nehezseg === 'nehez' ? 'checked' : ''}> Nehéz</label>
             </div>
             <div class="time-limit">
-                <label for="time-limit">Időlimit (másodperc, veszélyzóna):</label>
+                <label for="time-limit">Időlimit (mp):</label>
                 <input type="number" id="time-limit" value="${this.main.idokorlathoz > 0 ? this.main.idokorlathoz : ''}" min="0">
+            </div>
+            <div class="time-limit">
+                <label for="tabla-meret">Pálya méret:</label>
+                <select id="tabla-meret">
+                    <option value="kicsi" ${this.main.meret === 'kicsi' ? 'selected' : ''}>Kicsi (8x8)</option>
+                    <option value="kozepes" ${this.main.meret === 'kozepes' ? 'selected' : ''}>Közepes (15x15)</option>
+                    <option value="nagy" ${this.main.meret === 'nagy' ? 'selected' : ''}>Nagy (24x24)</option>
+                </select>
             </div>
             <button id="beallitas-alkalmaz">Beállítások alkalmazása</button>
             <button id="beallitas-megse">Mégse</button>
@@ -39,11 +40,13 @@ export class Beallitasok {
     }
 
     alkalmazBeallitasok() {
-        const valasztott = document.querySelector('input[name="nehezseg"]:checked')?.value || 'alap';
-        const idolimitInput = document.getElementById('time-limit');
+        const nehezseg = document.querySelector('input[name="nehezseg"]:checked')?.value || 'alap';
+        const limit = document.getElementById('time-limit');
+        const meret = document.getElementById('tabla-meret')?.value || 'kozepes';
 
-        this.main.nehezseg = valasztott;
-        this.main.idokorlathoz = idolimitInput?.value ? parseInt(idolimitInput.value, 10) : 0;
+        this.main.nehezseg = nehezseg;
+        this.main.idokorlathoz = limit?.value ? parseInt(limit.value, 10) : 0;
+        this.main.frissitTablaMeret(meret);
 
         this.frissitBeallitasok();
         this.bezarAktivAblak();
@@ -75,11 +78,11 @@ export class Beallitasok {
     grafika() {
         const ablak = this.nyitAblak(`
             <h2>Grafikai beállítások</h2>
-            <label><input type="checkbox" id="hattervaltas"> Szivárványos háttér kikapcsolása</label><br>
-            <label><input type="checkbox" id="kepeshatter1"> Természetes háttérre váltás</label><br>
-            <label><input type="checkbox" id="kepeshatter2"> Esti hangulat</label><br>
-            <label>Játékos 1 háttérszíne: <input type="color" id="jatekos1Szin"></label><br>
-            <label>Játékos 2 háttérszíne: <input type="color" id="jatekos2Szin"></label><br>
+            <label><input type="checkbox" id="hattervaltas"> Szivárványos háttér</label><br>
+            <label><input type="checkbox" id="kepeshatter1"> Természetes háttér</label><br>
+            <label><input type="checkbox" id="kepeshatter2"> Esti háttér</label><br>
+            <label>Játékos 1 színe: <input type="color" id="jatekos1Szin"></label><br>
+            <label>Játékos 2 színe: <input type="color" id="jatekos2Szin"></label><br>
             <button id="grafika-alkalmaz">Alkalmaz</button>
             <button id="grafika-megse">Mégse</button>
         `);
@@ -100,7 +103,6 @@ export class Beallitasok {
         localStorage.setItem('kepeshatter2', document.getElementById('kepeshatter2').checked ? 'igen' : 'nem');
         localStorage.setItem('jatekos1Szin', document.getElementById('jatekos1Szin').value);
         localStorage.setItem('jatekos2Szin', document.getElementById('jatekos2Szin').value);
-
         this.alkalmazGrafikaiBeallitasokValoban();
         this.bezarAktivAblak();
     }
@@ -124,14 +126,12 @@ export class Beallitasok {
 
         const szin1 = localStorage.getItem('jatekos1Szin') || '#ff0000';
         const szin2 = localStorage.getItem('jatekos2Szin') || '#0000ff';
-
         let stilus = document.getElementById('grafika-stilus');
         if (!stilus) {
             stilus = document.createElement('style');
             stilus.id = 'grafika-stilus';
             document.head.appendChild(stilus);
         }
-
         stilus.innerHTML = `.jatekos1 { background-color: ${szin1} !important; } .jatekos2 { background-color: ${szin2} !important; }`;
     }
 
@@ -184,30 +184,25 @@ export class Beallitasok {
     karakterKivalasztas() {
         this.main.karakter1 = document.querySelector('input[name="karakter1"]:checked')?.value || '0';
         this.main.karakter2 = document.querySelector('input[name="karakter2"]:checked')?.value || '0';
-
         localStorage.setItem('karakter1', this.main.karakter1);
         localStorage.setItem('karakter2', this.main.karakter2);
-
         this.bezarAktivAblak();
     }
 
     karakterAlkalmazas() {
         this.karakterPresetAlkalmaz(this.main.jatekos1, this.main.karakter1);
         this.karakterPresetAlkalmaz(this.main.jatekos2, this.main.karakter2);
+        this.main.frissitJatekosPanelok();
     }
 
     karakterPresetAlkalmaz(jatekos, karakterKod) {
         const preset = KARAKTER_PRESET[karakterKod];
         if (!preset) return;
-
-        Object.entries(preset).forEach(([kulcs, ertek]) => {
-            jatekos[kulcs] = ertek;
-        });
+        Object.entries(preset).forEach(([kulcs, ertek]) => { jatekos[kulcs] = ertek; });
     }
 
     nyitAblak(innerHtml) {
         this.bezarAktivAblak();
-
         const ablak = document.createElement('div');
         ablak.classList.add('beallitaskepernyo');
         ablak.innerHTML = innerHtml;
