@@ -18,9 +18,9 @@ export class Palya {
     tablaLetrehoz() {
         const tablaElem = document.getElementById('jatekter');
         tablaElem.innerHTML = '';
+        this.alkalmazMeretStilus();
 
         this.tabla = Array.from({ length: this.sorok }, () => Array.from({ length: this.oszlopok }));
-
         for (let i = 0; i < this.sorok; i++) {
             const tr = document.createElement('tr');
             for (let j = 0; j < this.oszlopok; j++) {
@@ -32,22 +32,37 @@ export class Palya {
         }
     }
 
+    alkalmazMeretStilus() {
+        let meret = 50;
+        if (this.sorok <= 8) meret = 68;
+        else if (this.sorok >= 24) meret = 28;
+        document.documentElement.style.setProperty('--cella-meret', `${meret}px`);
+    }
+
     cella(x, y) {
         return this.tabla[x][y];
     }
 
+    biztonsagosMezok() {
+        return [
+            { r: 0, c: 0 }, { r: 1, c: 0 }, { r: 0, c: 1 },
+            { r: this.sorok - 1, c: this.oszlopok - 1 },
+            { r: this.sorok - 2, c: this.oszlopok - 1 },
+            { r: this.sorok - 1, c: this.oszlopok - 2 }
+        ];
+    }
+
     egyediPoziciok(db, kizart = []) {
+        const max = this.sorok * this.oszlopok - kizart.length;
+        const celDb = Math.max(0, Math.min(db, max));
         const poziciok = [];
-        while (poziciok.length < db) {
+
+        while (poziciok.length < celDb) {
             const r = Math.floor(Math.random() * this.sorok);
             const c = Math.floor(Math.random() * this.oszlopok);
-
             const marLetezik = poziciok.some((p) => p.r === r && p.c === c);
             const tiltott = kizart.some((p) => p.r === r && p.c === c);
-
-            if (!marLetezik && !tiltott) {
-                poziciok.push({ r, c });
-            }
+            if (!marLetezik && !tiltott) poziciok.push({ r, c });
         }
         return poziciok;
     }
@@ -56,13 +71,11 @@ export class Palya {
         poziciok.forEach(({ r, c }) => this.tabla[r][c].classList.add(osztaly));
     }
 
-    ervenyesLepes(x, y) {
-        return x >= 0
-            && x < this.sorok
-            && y >= 0
-            && y < this.oszlopok
-            && !this.tabla[x][y].classList.contains('doboz')
-            && !this.tabla[x][y].classList.contains('bomba');
+    ervenyesLepes(x, y, jatekos = null) {
+        if (x < 0 || x >= this.sorok || y < 0 || y >= this.oszlopok) return false;
+        if (this.tabla[x][y].classList.contains('bomba')) return false;
+        if (this.tabla[x][y].classList.contains('doboz') && !(jatekos && jatekos.arnyekAktiv())) return false;
+        return true;
     }
 
     jatekosRajzol(jatekos, osztaly) {
@@ -78,12 +91,10 @@ export class Palya {
 
     kozelbenUresPozicio(halalX, halalY, tav = 3) {
         const lehetseges = [];
-
         for (let dx = -tav; dx <= tav; dx++) {
             for (let dy = -tav; dy <= tav; dy++) {
                 const x = halalX + dx;
                 const y = halalY + dy;
-
                 if (
                     x >= 0 && x < this.sorok
                     && y >= 0 && y < this.oszlopok
@@ -95,9 +106,7 @@ export class Palya {
                 }
             }
         }
-
-        if (lehetseges.length === 0) return null;
-        return lehetseges[Math.floor(Math.random() * lehetseges.length)];
+        return lehetseges.length > 0 ? lehetseges[Math.floor(Math.random() * lehetseges.length)] : null;
     }
 
     alkalmazVeszelyZona(szint) {
@@ -114,14 +123,10 @@ export class Palya {
     idovegeEffekt() {
         const kijelzo = document.getElementById('timeDisplay');
         document.getElementById('jatekter').classList.add('jatekter-veszely');
-
         if (kijelzo) {
             kijelzo.innerText = '⏱ Lejárt az idő! A pálya szűkül...';
-            setTimeout(() => {
-                kijelzo.style.display = 'none';
-            }, 5000);
+            setTimeout(() => { kijelzo.style.display = 'none'; }, 5000);
         }
-
         document.body.style.background = 'black';
 
         this.veszelyInterval = setInterval(() => {
@@ -135,16 +140,12 @@ export class Palya {
     }
 
     ellenorizVeszelyHalal(jatekos) {
-        const cella = this.tabla[jatekos.x][jatekos.y];
-        if (!cella.classList.contains('veszelyzona')) return;
-
-        jatekos.elet = 0;
+        if (!this.tabla[jatekos.x][jatekos.y].classList.contains('veszelyzona')) return;
         jatekos.jatekosHal(this.main);
     }
 
     frissitVeszelySebzes(jatekos, delta) {
-        const cella = this.tabla[jatekos.x][jatekos.y];
-        if (!cella.classList.contains('veszelyzona')) {
+        if (!this.tabla[jatekos.x][jatekos.y].classList.contains('veszelyzona')) {
             jatekos.veszelybenToltottIdo = 0;
             return;
         }
@@ -153,7 +154,6 @@ export class Palya {
         if (jatekos.veszelybenToltottIdo < 3000) return;
 
         jatekos.veszelybenToltottIdo = 0;
-        jatekos.elet -= 1;
-        jatekos.jatekosHal(this.main);
+        jatekos.sebezodik(this.main);
     }
-}
+}   
