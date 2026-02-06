@@ -206,6 +206,8 @@ export class Beallitasok {
     }
 
     nyitAblak(innerHtml) {
+        this.bezarAktivAblak();
+
         const ablak = document.createElement('div');
         ablak.classList.add('beallitaskepernyo');
         ablak.innerHTML = innerHtml;
