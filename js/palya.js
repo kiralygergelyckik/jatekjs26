@@ -1,5 +1,6 @@
 export class Palya {
-    constructor(sorok, oszlopok) {
+    constructor(main, sorok, oszlopok) {
+        this.main = main;
         this.sorok = sorok;
         this.oszlopok = oszlopok;
         this.tabla = [];
@@ -99,42 +100,6 @@ export class Palya {
         return lehetseges[Math.floor(Math.random() * lehetseges.length)];
     }
 
-    jatekosHal(jatekos, pontFrissites) {
-        const halalozasiX = jatekos.x;
-        const halalozasiY = jatekos.y;
-
-        this.jatekosTorol(jatekos);
-
-        const cella = this.tabla[halalozasiX][halalozasiY];
-        cella.classList.add('jatekosHalal');
-        setTimeout(() => cella.classList.remove('jatekosHalal'), 1000);
-
-        if (jatekos === this.jatekos1) {
-            this.jatekos2.pont += 1;
-        } else {
-            this.jatekos1.pont += 1;
-        }
-        pontFrissites();
-
-        const ujHely = this.kozelbenUresPozicio(halalozasiX, halalozasiY, 3);
-        if (ujHely) {
-            jatekos.resetPozicio(ujHely.x, ujHely.y);
-        } else {
-            const alapPozicio = jatekos === this.jatekos1 ? { x: 1, y: 1 } : { x: 13, y: 13 };
-            jatekos.resetPozicio(alapPozicio.x, alapPozicio.y);
-        }
-
-        this.jatekosRajzol(jatekos, jatekos === this.jatekos1 ? 'jatekos1' : 'jatekos2');
-        const ujDiv = this.tabla[jatekos.x][jatekos.y].querySelector('.jatekosDiv');
-        if (!ujDiv) return;
-
-        ujDiv.classList.add('sebezhetetlen');
-        setTimeout(() => {
-            jatekos.sebezhetetlen = false;
-            ujDiv.classList.remove('sebezhetetlen');
-        }, 1000);
-    }
-
     alkalmazVeszelyZona(szint) {
         for (let i = 0; i < this.sorok; i++) {
             for (let j = 0; j < this.oszlopok; j++) {
@@ -169,15 +134,15 @@ export class Palya {
         }, 5000);
     }
 
-    ellenorizVeszelyHalal(jatekos, pontFrissites) {
+    ellenorizVeszelyHalal(jatekos) {
         const cella = this.tabla[jatekos.x][jatekos.y];
         if (!cella.classList.contains('veszelyzona')) return;
 
         jatekos.elet = 0;
-        this.jatekosHal(jatekos, pontFrissites);
+        jatekos.jatekosHal(this.main);
     }
 
-    frissitVeszelySebzes(jatekos, delta, pontFrissites) {
+    frissitVeszelySebzes(jatekos, delta) {
         const cella = this.tabla[jatekos.x][jatekos.y];
         if (!cella.classList.contains('veszelyzona')) {
             jatekos.veszelybenToltottIdo = 0;
@@ -189,6 +154,6 @@ export class Palya {
 
         jatekos.veszelybenToltottIdo = 0;
         jatekos.elet -= 1;
-        this.jatekosHal(jatekos, pontFrissites);
+        jatekos.jatekosHal(this.main);
     }
 }
