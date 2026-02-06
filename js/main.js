@@ -50,7 +50,7 @@ class Main {
         this.jatekos1 = new Jatekos({ nev: 'Piros', x: 0, y: 0, sebesseg: 250, alapsebesseg: 250 });
         this.jatekos2 = new Jatekos({ nev: 'Kék', x: 14, y: 14, sebesseg: 250, alapsebesseg: 250 });
 
-        this.palya = new Palya(this.sorok, this.oszlopok);
+        this.palya = new Palya(this, this.sorok, this.oszlopok);
         this.erositesek = new Erositesek(this);
         this.beallitasok = new Beallitasok(this);
     }
@@ -72,8 +72,8 @@ class Main {
 
         document.addEventListener('keydown', (event) => {
             if (!this.lenyomott[event.key]) {
-                if (event.key === 'q') this.erositesek.bombaLetesz(this.jatekos1);
-                if (event.key === 'm') this.erositesek.bombaLetesz(this.jatekos2);
+                if (event.key === 'q') this.jatekos1.bombaLetesz(this);
+                if (event.key === 'm') this.jatekos2.bombaLetesz(this);
             }
             this.lenyomott[event.key] = true;
         });
@@ -90,11 +90,12 @@ class Main {
 
         MOZGASOK.forEach(({ key, player, dx, dy }) => {
             if (!this.lenyomott[key]) return;
-            this.jatekosMozog(player === 1 ? this.jatekos1 : this.jatekos2, dx, dy);
+            const jatekos = player === 1 ? this.jatekos1 : this.jatekos2;
+            jatekos.jatekosMozog(this, dx, dy);
         });
 
-        this.palya.frissitVeszelySebzes(this.jatekos1, 70, () => this.frissitPontszam());
-        this.palya.frissitVeszelySebzes(this.jatekos2, 70, () => this.frissitPontszam());
+        this.palya.frissitVeszelySebzes(this.jatekos1, 70);
+        this.palya.frissitVeszelySebzes(this.jatekos2, 70);
     }
 
     jatekTablaLetrehoz() {
@@ -123,30 +124,6 @@ class Main {
 
         if (this.idokorlathoz > 0) this.inditIdozito();
         this.frissitPontszam();
-    }
-
-    jatekosMozog(jatekos, dx, dy) {
-        const most = Date.now();
-        if (most - jatekos.utolsoMozgas < jatekos.sebesseg) return;
-
-        const ujX = jatekos.x + dx;
-        const ujY = jatekos.y + dy;
-        const masikJatekos = jatekos === this.jatekos1 ? this.jatekos2 : this.jatekos1;
-        if (masikJatekos.x === ujX && masikJatekos.y === ujY) return;
-
-        if (!this.palya.ervenyesLepes(ujX, ujY)) return;
-
-        this.palya.jatekosTorol(jatekos);
-        jatekos.x = ujX;
-        jatekos.y = ujY;
-        this.palya.jatekosRajzol(jatekos, jatekos === this.jatekos1 ? 'jatekos1' : 'jatekos2');
-
-        if (this.palya.cella(ujX, ujY).classList.contains('powerup') && this.felveheto) {
-            this.erositesek.powerupFelvesz(jatekos, ujX, ujY);
-        }
-
-        jatekos.utolsoMozgas = most;
-        this.palya.ellenorizVeszelyHalal(jatekos, () => this.frissitPontszam());
     }
 
     frissitPontszam() {
