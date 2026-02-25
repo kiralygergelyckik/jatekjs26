@@ -337,5 +337,32 @@ export class Palya {
         ctx.moveTo(cx - cellW * 0.14, cy + cellH * 0.02);
         ctx.lineTo(cx + cellW * 0.14, cy + cellH * 0.08);
         ctx.stroke();
+
+        if (jatekos.powerupPopup && jatekos.powerupOpacity > 0) {
+            const textY = y + cellH * 0.14;
+            const fontSize = Math.max(12, Math.floor(cellW * 0.24));
+            ctx.save();
+            ctx.globalAlpha = jatekos.powerupOpacity;
+            ctx.font = `bold ${fontSize}px Georgia, serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(jatekos.powerupPopup);
+            const padX = 8;
+            const boxW = metrics.width + padX * 2;
+            const boxH = fontSize + 8;
+
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.rect(cx - boxW / 2, textY - boxH / 2, boxW, boxH);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.fillText(jatekos.powerupPopup, cx, textY + 1);
+            ctx.restore();
+        }
     }
 }

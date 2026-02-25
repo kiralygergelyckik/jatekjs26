@@ -16,26 +16,26 @@ const MOZGASOK = [
     { key: 's', player: 1, dx: 1, dy: 0 },
     { key: 'a', player: 1, dx: 0, dy: -1 },
     { key: 'd', player: 1, dx: 0, dy: 1 },
-    { key: 'ArrowUp', player: 2, dx: -1, dy: 0 },
-    { key: 'ArrowDown', player: 2, dx: 1, dy: 0 },
-    { key: 'ArrowLeft', player: 2, dx: 0, dy: -1 },
-    { key: 'ArrowRight', player: 2, dx: 0, dy: 1 },
-    { key: 't', player: 3, dx: -1, dy: 0 },
-    { key: 'g', player: 3, dx: 1, dy: 0 },
-    { key: 'f', player: 3, dx: 0, dy: -1 },
-    { key: 'h', player: 3, dx: 0, dy: 1 },
-    { key: 'i', player: 4, dx: -1, dy: 0 },
-    { key: 'k', player: 4, dx: 1, dy: 0 },
-    { key: 'j', player: 4, dx: 0, dy: -1 },
-    { key: 'l', player: 4, dx: 0, dy: 1 }
+    { key: 'w', player: 2, dx: -1, dy: 0 },
+    { key: 's', player: 2, dx: 1, dy: 0 },
+    { key: 'a', player: 2, dx: 0, dy: -1 },
+    { key: 'd', player: 2, dx: 0, dy: 1 },
+    { key: 'w', player: 3, dx: -1, dy: 0 },
+    { key: 's', player: 3, dx: 1, dy: 0 },
+    { key: 'a', player: 3, dx: 0, dy: -1 },
+    { key: 'd', player: 3, dx: 0, dy: 1 },
+    { key: 'w', player: 4, dx: -1, dy: 0 },
+    { key: 's', player: 4, dx: 1, dy: 0 },
+    { key: 'a', player: 4, dx: 0, dy: -1 },
+    { key: 'd', player: 4, dx: 0, dy: 1 }
 ];
 
 
 const PLAYER_CONTROLS = {
     1: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
-    2: { mozgas: ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'], bomba: 'm' },
-    3: { mozgas: ['t', 'f', 'g', 'h'], bomba: 'r' },
-    4: { mozgas: ['i', 'j', 'k', 'l'], bomba: 'o' }
+    2: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
+    3: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
+    4: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' }
 };
 
 const POWERUP_SLOTOK = [
@@ -95,6 +95,15 @@ class Main {
         this.beallitasok = new Beallitasok(this);
         this.network = new NetworkManager(this);
         this.utolsoRemoteCells = [];
+        this.menuCanvas = null;
+        this.menuCtx = null;
+        this.menuSelected = 0;
+        this.menuOpcio = [
+            { cim: 'Kezdés', action: () => this.jatekTablaLetrehoz() },
+            { cim: 'Beállítások', action: () => this.beallitasok.megjelenitBeallitasok() },
+            { cim: 'Pályák', action: () => this.beallitasok.palyak() },
+            { cim: 'Karakterek', action: () => this.beallitasok.karakterek() }
+        ];
     }
 
     init() {
@@ -102,6 +111,7 @@ class Main {
         this.inicializalPowerupSlotok();
         this.frissitJatekosPanelok();
         this.kotEventek();
+        this.initMenuCanvas();
 
         const gyik = document.getElementById('gyik-doboz');
         if (gyik) gyik.style.display = 'block';
@@ -118,6 +128,111 @@ class Main {
     setActivePlayers(db) {
         this.activePlayers = Math.max(2, Math.min(4, Number(db) || 2));
         this.frissitJatekosPanelok();
+    }
+
+
+    initMenuCanvas() {
+        this.menuCanvas = document.getElementById('menu-canvas');
+        if (!this.menuCanvas) return;
+        this.menuCtx = this.menuCanvas.getContext('2d');
+
+        this.menuCanvas.addEventListener('mousemove', (event) => {
+            if (this.jatekAktiv) return;
+            const rect = this.menuCanvas.getBoundingClientRect();
+            this.menuKezelPointer(event.clientX - rect.left, event.clientY - rect.top, false);
+        });
+
+        this.menuCanvas.addEventListener('click', (event) => {
+            if (this.jatekAktiv) return;
+            const rect = this.menuCanvas.getBoundingClientRect();
+            this.menuKezelPointer(event.clientX - rect.left, event.clientY - rect.top, true);
+        });
+
+        window.addEventListener('resize', () => this.menuRajzol());
+        this.menuRajzol();
+    }
+
+    menuRectek() {
+        return this.menuOpcio.map((_, idx) => ({
+            x: 45,
+            y: 34 + idx * 74,
+            w: 250,
+            h: 56
+        }));
+    }
+
+    menuKezelPointer(x, y, kattintas) {
+        const rectek = this.menuRectek();
+        const idx = rectek.findIndex((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+        if (idx < 0) return;
+        this.menuSelected = idx;
+        this.menuRajzol();
+        if (kattintas) this.menuOpcio[idx].action();
+    }
+
+    menuRajzol() {
+        if (!this.menuCtx || !this.menuCanvas || this.jatekAktiv) return;
+        const ctx = this.menuCtx;
+        const w = this.menuCanvas.width;
+        const h = this.menuCanvas.height;
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+
+        this.menuRectek().forEach((r, idx) => {
+            const jitter = Math.sin(Date.now() / 600 + idx) * 1.2;
+            ctx.strokeStyle = '#0a0a0a';
+            ctx.lineWidth = idx === this.menuSelected ? 3 : 1.5;
+            if (idx === this.menuSelected) ctx.setLineDash([7, 4]);
+            else ctx.setLineDash([]);
+
+            ctx.beginPath();
+            ctx.moveTo(r.x + jitter, r.y + 2);
+            ctx.lineTo(r.x + r.w - 2, r.y + 1 - jitter * 0.2);
+            ctx.lineTo(r.x + r.w - jitter, r.y + r.h - 2);
+            ctx.lineTo(r.x + 2, r.y + r.h - 1 + jitter * 0.2);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#111';
+            ctx.font = '28px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.menuOpcio[idx].cim, r.x + r.w / 2, r.y + r.h / 2 + 1);
+        });
+
+        ctx.fillStyle = '#222';
+        ctx.font = '14px Georgia, serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('LAN: H = Host, J = Join', 14, h - 14);
+    }
+
+    menuBillentyu(event) {
+        const key = event.key;
+        if (key === 'ArrowUp') {
+            this.menuSelected = (this.menuSelected + this.menuOpcio.length - 1) % this.menuOpcio.length;
+            this.menuRajzol();
+            return true;
+        }
+        if (key === 'ArrowDown') {
+            this.menuSelected = (this.menuSelected + 1) % this.menuOpcio.length;
+            this.menuRajzol();
+            return true;
+        }
+        if (key === 'Enter' || key === ' ') {
+            this.menuOpcio[this.menuSelected].action();
+            return true;
+        }
+        if (key.toLowerCase() === 'h') {
+            this.hostRoom();
+            return true;
+        }
+        if (key.toLowerCase() === 'j') {
+            this.joinRoom();
+            return true;
+        }
+        return false;
     }
 
     kezdoPoziciok() {
@@ -152,16 +267,12 @@ class Main {
     }
 
     kotEventek() {
-        document.getElementById('kezdes').addEventListener('click', () => this.jatekTablaLetrehoz());
-        document.getElementById('beallitasok').addEventListener('click', () => this.beallitasok.megjelenitBeallitasok());
-        document.getElementById('grafika').addEventListener('click', () => this.beallitasok.grafika());
-        document.getElementById('palyak').addEventListener('click', () => this.beallitasok.palyak());
-        document.getElementById('karakterek').addEventListener('click', () => this.beallitasok.karakterek());
-
-        document.getElementById('host').addEventListener('click', () => this.hostRoom());
-        document.getElementById('join').addEventListener('click', () => this.joinRoom());
-
         document.addEventListener('keydown', (event) => {
+            if (!this.jatekAktiv && this.menuBillentyu(event)) {
+                event.preventDefault();
+                return;
+            }
+
             const key = event.key;
             const sajatSlot = this.network.isClient() ? this.network.selfSlot : 1;
             const sajatControl = PLAYER_CONTROLS[sajatSlot] || PLAYER_CONTROLS[1];
@@ -171,11 +282,6 @@ class Main {
                     if (key === sajatControl.bomba) this.network.sendBomb();
                 } else {
                     if (key === PLAYER_CONTROLS[1].bomba) this.jatekos1.bombaLetesz(this);
-                    if (!this.network.isHost()) {
-                        if (key === PLAYER_CONTROLS[2].bomba) this.jatekos2.bombaLetesz(this);
-                        if (key === PLAYER_CONTROLS[3].bomba) this.jatekos3.bombaLetesz(this);
-                        if (key === PLAYER_CONTROLS[4].bomba) this.jatekos4.bombaLetesz(this);
-                    }
                 }
             }
 
@@ -198,6 +304,7 @@ class Main {
 
         setInterval(() => this.futasiCiklus(), 70);
         setInterval(() => this.palya.render(), 60);
+        setInterval(() => this.menuRajzol(), 280);
     }
 
     hostRoom() {
@@ -248,6 +355,15 @@ class Main {
 
         this.palya.tablaLetrehoz();
         this.utolsoRemoteCells = [];
+        this.menuCanvas = null;
+        this.menuCtx = null;
+        this.menuSelected = 0;
+        this.menuOpcio = [
+            { cim: 'Kezdés', action: () => this.jatekTablaLetrehoz() },
+            { cim: 'Beállítások', action: () => this.beallitasok.megjelenitBeallitasok() },
+            { cim: 'Pályák', action: () => this.beallitasok.palyak() },
+            { cim: 'Karakterek', action: () => this.beallitasok.karakterek() }
+        ];
         this.palya.beallitJatekosok(this.players);
 
         document.getElementById('menu').style.display = 'none';
@@ -432,23 +548,65 @@ class Main {
         }
     }
 
+
+    kesleltetettStart(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async inditPowerupPopup(jatekos, szoveg) {
+        if (jatekos.powerupInterval) clearInterval(jatekos.powerupInterval);
+
+        jatekos.powerupPopup = szoveg;
+        jatekos.powerupOpacity = 1;
+
+        await this.kesleltetettStart(30);
+
+        return new Promise((resolve) => {
+            let lezart = false;
+            const lezaro = () => {
+                if (lezart) return;
+                lezart = true;
+                if (jatekos.powerupInterval) {
+                    clearInterval(jatekos.powerupInterval);
+                    jatekos.powerupInterval = null;
+                }
+                jatekos.powerupOpacity = 0;
+                jatekos.powerupPopup = '';
+                resolve();
+            };
+
+            const kezdes = Date.now();
+            jatekos.powerupInterval = setInterval(() => {
+                const eltelt = Date.now() - kezdes;
+                const arany = Math.max(0, 1 - (eltelt / 2000));
+                jatekos.powerupOpacity = arany;
+                if (arany <= 0) lezaro();
+            }, 80);
+
+            setTimeout(() => lezaro(), 2100);
+        });
+    }
+
     mutatPowerupUzenet(jatekos, szoveg) {
         const idx = this.players.indexOf(jatekos);
         const elemId = idx >= 0 ? `uzenet-${idx + 1}` : null;
         const elem = elemId ? document.getElementById(elemId) : null;
+
+        this.inditPowerupPopup(jatekos, szoveg)
+            .then(() => {
+                if (!elem) return;
+                elem.textContent = '';
+                elem.style.opacity = '0';
+            })
+            .catch(() => {
+                if (!elem) return;
+                elem.textContent = '';
+                elem.style.opacity = '0';
+            });
+
         if (!elem) return;
-
         elem.textContent = szoveg;
-        elem.style.opacity = '1';
-
-        if (jatekos.uzenetIdozito) clearTimeout(jatekos.uzenetIdozito);
-        jatekos.uzenetIdozito = setTimeout(() => {
-            elem.style.opacity = '0';
-        }, 50);
-        jatekos.uzenetIdozito = setTimeout(() => {
-            elem.textContent = '';
-            elem.style.opacity = '0';
-        }, 2000);
+        elem.style.opacity = '0.35';
     }
 
     jatekVege(nyertes) {

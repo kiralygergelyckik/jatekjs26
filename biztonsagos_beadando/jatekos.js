@@ -20,6 +20,9 @@ export class Jatekos {
         this.bombaido = 0;
         this.regisebesseg = sebesseg;
         this.uzenetIdozito = null;
+        this.powerupPopup = '';
+        this.powerupOpacity = 0;
+        this.powerupInterval = null;
 
         this.pajzsVege = 0;
         this.arnyekVege = 0;
@@ -53,6 +56,10 @@ export class Jatekos {
         this.pajzsVege = 0;
         this.arnyekVege = 0;
         this.furoAktiv = false;
+        if (this.powerupInterval) clearInterval(this.powerupInterval);
+        this.powerupInterval = null;
+        this.powerupPopup = '';
+        this.powerupOpacity = 0;
         this.powerupAllapot = {
             nagyrobbanas: false,
             gyorsito: false,
@@ -248,4 +255,4 @@ export class Jatekos {
         main.frissitJatekosPanelok();
         main.ellenorizGyozelem();
     }
-}
+}   
