@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bomberman</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="Module" src="main.js"></script>
+</head>
+<body>
+    <div id="focim">Slay the kuruc</div>
+
+    <div id="oldal-bal" class="oldal-oszlop rejtett">
+        <aside id="panel-1" class="jatekos-panel">
+            <h3>Piros</h3>
+            <div id="szivek-1" class="szivek"></div>
+            <div id="uzenet-1" class="panel-uzenet"></div>
+        </aside>
+        <aside id="panel-3" class="jatekos-panel rejtett">
+            <h3>Sárga</h3>
+            <div id="szivek-3" class="szivek"></div>
+            <div id="uzenet-3" class="panel-uzenet"></div>
+        </aside>
+    </div>
+
+    <div id="jatekter"></div>
+
+    <div id="oldal-jobb" class="oldal-oszlop rejtett">
+        <aside id="panel-2" class="jatekos-panel">
+            <h3>Kék</h3>
+            <div id="szivek-2" class="szivek"></div>
+            <div id="uzenet-2" class="panel-uzenet"></div>
+        </aside>
+        <aside id="panel-4" class="jatekos-panel rejtett">
+            <h3>Zöld</h3>
+            <div id="szivek-4" class="szivek"></div>
+            <div id="uzenet-4" class="panel-uzenet"></div>
+        </aside>
+    </div>
+
+    <div id="menu">
+        <ul>
+            <li><input type="button" value="Kezdés" id="kezdes"></li>
+            <li><input type="button" value="Beállítások" id="beallitasok"></li>
+            <li><input type="button" value="Grafika" id="grafika"></li>
+            <li><input type="button" value="Pályák" id="palyak"></li>
+            <li><input type="button" value="Karakterek" id="karakterek"></li>
+            <li><input type="button" value="Host (LAN)" id="host"></li>
+            <li><input type="button" value="Join (LAN)" id="join"></li>
+        </ul>
+    </div>
+
+    <div id="gyik-doboz">
+        GYIK
+        <div id="gyik-sav">
+            <h3>Gyakori kérdések</h3>
+            <ul>
+                <li>A játékos 1 a <b>WASD</b> gombokkal mozog, Q-val rak bombát.</li>
+                <li>A játékos 2 a <b>nyilakkal</b> mozog, M-mel rak bombát.</li>
+                <li>A játékos 3 a <b>TFGH</b> gombokkal mozog, R-rel rak bombát.</li>
+                <li>A játékos 4 a <b>IJKL</b> gombokkal mozog, O-val rak bombát.</li>
+                <li>Powerupok: nagy robbanás, gyorsító, fúró, pajzs, árnyék, MEGA + plusz élet.</li>
+                <li>A pálya szűkül, ha lejár az idő.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
