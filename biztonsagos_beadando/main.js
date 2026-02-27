@@ -11,7 +11,18 @@ const PALYA_BEALLITASOK = {
     veletlen: { dobozArany: 0.45, powerupMin: 1, powerupMax: 15 }
 };
 
-const MOZGASOK = [
+const MOZGASOK_LOCAL = [
+    { key: 'w', player: 1, dx: -1, dy: 0 },
+    { key: 's', player: 1, dx: 1, dy: 0 },
+    { key: 'a', player: 1, dx: 0, dy: -1 },
+    { key: 'd', player: 1, dx: 0, dy: 1 },
+    { key: 'ArrowUp', player: 2, dx: -1, dy: 0 },
+    { key: 'ArrowDown', player: 2, dx: 1, dy: 0 },
+    { key: 'ArrowLeft', player: 2, dx: 0, dy: -1 },
+    { key: 'ArrowRight', player: 2, dx: 0, dy: 1 }
+];
+
+const MOZGASOK_HALO = [
     { key: 'w', player: 1, dx: -1, dy: 0 },
     { key: 's', player: 1, dx: 1, dy: 0 },
     { key: 'a', player: 1, dx: 0, dy: -1 },
@@ -30,8 +41,12 @@ const MOZGASOK = [
     { key: 'd', player: 4, dx: 0, dy: 1 }
 ];
 
+const PLAYER_CONTROLS_LOCAL = {
+    1: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
+    2: { mozgas: ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'], bomba: 'm' }
+};
 
-const PLAYER_CONTROLS = {
+const PLAYER_CONTROLS_HALO = {
     1: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
     2: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
     3: { mozgas: ['w', 'a', 's', 'd'], bomba: 'q' },
@@ -48,9 +63,9 @@ const POWERUP_SLOTOK = [
 ];
 
 const TABLA_MERETEK = {
-    kicsi: { sorok: 8, oszlopok: 8 },
-    kozepes: { sorok: 15, oszlopok: 15 },
-    nagy: { sorok: 24, oszlopok: 24 }
+    kicsi: { sorok: 15, oszlopok: 15 },
+    kozepes: { sorok: 24, oszlopok: 24 },
+    nagy: { sorok: 30, oszlopok: 30 }
 };
 
 const CELL_FLAGS = {
@@ -59,10 +74,31 @@ const CELL_FLAGS = {
     perzseles: 4,
     romok: 8,
     veszelyzona: 16,
-    bomba: 32
+    bomba: 32,
+    viz: 64
 };
 
 const CELL_KEYS = Object.keys(CELL_FLAGS);
+
+
+const POWERUP_LABELS = {
+    nagyrobbanas: 'Nagyrobbanás',
+    gyorsito: 'Gyorsító',
+    furo: 'Fúró',
+    pajzs: 'Pajzs',
+    arnyek: 'Árnyék',
+    uszas: 'Úszás',
+    latoszog: 'Látószög',
+    bomba: 'Bomba',
+    mega: 'MEGA'
+};
+
+const KARAKTER_CIMEK = {
+    '0': 'Express',
+    '1': 'Úszó',
+    '2': 'Törött',
+    '3': 'Köret'
+};
 
 class Main {
     constructor() {
@@ -72,16 +108,21 @@ class Main {
 
         this.jatekAktiv = false;
         this.lenyomott = {};
-        this.nehezseg = 'alap';
         this.idokorlathoz = 0;
         this.hatralevoIdo = 0;
         this.idozito = null;
-        this.powerUpEsely = 1;
+        this.veszelyStartIdozito = null;
         this.bombaSebesseg = 1000;
 
         this.valasztottPalya = localStorage.getItem('palya') || null;
+        this.freqDoboz = Number(localStorage.getItem('freqDoboz') || 5);
+        this.freqViz = Number(localStorage.getItem('freqViz') || 5);
+        this.freqPowerup = Number(localStorage.getItem('freqPowerup') || 5);
         this.karakter1 = localStorage.getItem('karakter1') || '0';
         this.karakter2 = localStorage.getItem('karakter2') || '0';
+        this.karakter3 = localStorage.getItem('karakter3') || '0';
+        this.karakter4 = localStorage.getItem('karakter4') || '0';
+        this.gameOverText = '';
 
         this.jatekos1 = new Jatekos({ nev: 'Piros', x: 0, y: 0, sebesseg: 250, alapsebesseg: 250 });
         this.jatekos2 = new Jatekos({ nev: 'Kék', x: this.sorok - 1, y: this.oszlopok - 1, sebesseg: 250, alapsebesseg: 250 });
@@ -107,10 +148,10 @@ class Main {
     }
 
     init() {
-        this.beallitasok.alkalmazGrafikaiBeallitasokValoban();
         this.inicializalPowerupSlotok();
         this.frissitJatekosPanelok();
         this.kotEventek();
+        this.initMenuButtons();
         this.initMenuCanvas();
 
         const gyik = document.getElementById('gyik-doboz');
@@ -130,6 +171,51 @@ class Main {
         this.frissitJatekosPanelok();
     }
 
+    karakterKodByIndex(index) {
+        return this[`karakter${index + 1}`] || '0';
+    }
+
+    getControlScheme() {
+        return this.network.connected ? PLAYER_CONTROLS_HALO : PLAYER_CONTROLS_LOCAL;
+    }
+
+    getMozgasok() {
+        return this.network.connected ? MOZGASOK_HALO : MOZGASOK_LOCAL;
+    }
+
+    aktivLatoszog() {
+        return this.network.connected;
+    }
+
+    getLathatoKozep() {
+        if (!this.aktivLatoszog()) return null;
+        if (this.network.isClient()) {
+            const idx = Math.max(0, (this.network.selfSlot || 1) - 1);
+            return this.players[idx] || this.jatekos1;
+        }
+        return this.jatekos1;
+    }
+
+    getLatoszogMeret() {
+        if (!this.aktivLatoszog()) return null;
+        const center = this.getLathatoKozep();
+        if (center && Date.now() < (center.latoszogVege || 0)) return 7;
+        return 6;
+    }
+
+    initMenuButtons() {
+        const map = [
+            ['menu-start', () => this.jatekTablaLetrehoz()],
+            ['menu-settings', () => this.beallitasok.megjelenitBeallitasok()],
+            ['menu-tracks', () => this.beallitasok.palyak()],
+            ['menu-characters', () => this.beallitasok.karakterek()]
+        ];
+        map.forEach(([id, handler]) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.onclick = handler;
+        });
+    }
 
     initMenuCanvas() {
         this.menuCanvas = document.getElementById('menu-canvas');
@@ -275,13 +361,20 @@ class Main {
 
             const key = event.key;
             const sajatSlot = this.network.isClient() ? this.network.selfSlot : 1;
-            const sajatControl = PLAYER_CONTROLS[sajatSlot] || PLAYER_CONTROLS[1];
+            const controls = this.getControlScheme();
+            const sajatControl = controls[sajatSlot] || controls[1];
 
             if (!this.lenyomott[key]) {
                 if (this.network.isClient()) {
                     if (key === sajatControl.bomba) this.network.sendBomb();
                 } else {
-                    if (key === PLAYER_CONTROLS[1].bomba) this.jatekos1.bombaLetesz(this);
+                    const controls = this.getControlScheme();
+                    if (key === controls[1]?.bomba) this.jatekos1.bombaLetesz(this);
+                    if (!this.network.isHost()) {
+                        if (key === controls[2]?.bomba) this.jatekos2.bombaLetesz(this);
+                        if (key === controls[3]?.bomba) this.jatekos3.bombaLetesz(this);
+                        if (key === controls[4]?.bomba) this.jatekos4.bombaLetesz(this);
+                    }
                 }
             }
 
@@ -296,15 +389,16 @@ class Main {
             delete this.lenyomott[key];
 
             const sajatSlot = this.network.isClient() ? this.network.selfSlot : 1;
-            const sajatControl = PLAYER_CONTROLS[sajatSlot] || PLAYER_CONTROLS[1];
+            const controls = this.getControlScheme();
+            const sajatControl = controls[sajatSlot] || controls[1];
             if (this.network.isClient() && sajatControl.mozgas.includes(key)) {
                 this.network.sendInput(key, false);
             }
         });
 
-        setInterval(() => this.futasiCiklus(), 70);
-        setInterval(() => this.palya.render(), 60);
-        setInterval(() => this.menuRajzol(), 280);
+        setInterval(() => this.futasiCiklus(), 45);
+        setInterval(() => this.palya.render(), 40);
+        if (document.getElementById('menu-canvas')) setInterval(() => this.menuRajzol(), 180);
     }
 
     hostRoom() {
@@ -321,8 +415,9 @@ class Main {
 
     futasiCiklus() {
         if (!this.jatekAktiv) return;
+        if (this.network.isClient()) return;
 
-        MOZGASOK.forEach(({ key, player, dx, dy }) => {
+        this.getMozgasok().forEach(({ key, player, dx, dy }) => {
             if (player > this.activePlayers) return;
             const jatekos = this.players[player - 1];
             if (!jatekos) return;
@@ -340,20 +435,22 @@ class Main {
                 return;
             }
 
-            if (this.network.isClient()) return;
-
             if (!this.lenyomott[key]) return;
             jatekos.jatekosMozog(this, dx, dy);
         });
 
-        this.osszesJatekos().forEach((jatekos) => this.palya.frissitVeszelySebzes(jatekos, 70));
+        this.osszesJatekos().forEach((jatekos) => this.palya.frissitVeszelySebzes(jatekos, 45));
     }
 
     jatekTablaLetrehoz() {
         this.jatekAktiv = true;
+        this.gameOverText = '';
+        this.eltuntetJatekVegeAblak();
         this.beallitasok.karakterAlkalmazas();
 
         this.palya.tablaLetrehoz();
+        this.palya.resetVeszelyZona();
+        document.body.style.background = '';
         this.utolsoRemoteCells = [];
         this.menuCanvas = null;
         this.menuCtx = null;
@@ -368,6 +465,8 @@ class Main {
 
         document.getElementById('menu').style.display = 'none';
         document.getElementById('focim').style.display = 'none';
+        const eye = document.querySelector('.eye');
+        if (eye) eye.style.display = 'none';
 
         const gyik = document.getElementById('gyik-doboz');
         if (gyik) gyik.style.display = 'none';
@@ -379,22 +478,23 @@ class Main {
         const biztonsagos = this.palya.biztonsagosMezok();
         const ures = this.palya.egyediPoziciok(Math.max(2, Math.floor((this.sorok * this.oszlopok) * 0.02)), biztonsagos);
 
-        const palyaBeallitas = PALYA_BEALLITASOK[this.valasztottPalya] || PALYA_BEALLITASOK.veletlen;
-        const maxDoboz = Math.floor((this.sorok * this.oszlopok) * 0.7);
-        const dobozDarab = Math.min(maxDoboz, Math.floor(this.sorok * this.oszlopok * (palyaBeallitas.dobozArany || 0.4)));
+        const total = this.sorok * this.oszlopok;
+        const dobozDarab = Math.floor(total * (0.06 + this.freqDoboz * 0.028));
         const dobozok = this.palya.egyediPoziciok(dobozDarab, [...ures, ...biztonsagos]);
 
-        const powerupDarab = palyaBeallitas.powerupArany
-            ? Math.max(2, Math.floor(this.sorok * this.oszlopok * palyaBeallitas.powerupArany))
-            : Math.floor(Math.random() * palyaBeallitas.powerupMax) + palyaBeallitas.powerupMin;
+        const vizDarab = Math.floor(total * (0.01 + this.freqViz * 0.01));
+        const vizek = this.palya.egyediPoziciok(vizDarab, [...ures, ...dobozok, ...biztonsagos]);
 
-        const powerupok = this.palya.egyediPoziciok(powerupDarab, [...ures, ...dobozok, ...biztonsagos]);
+        const powerupDarab = Math.max(2, Math.floor(total * (0.004 + this.freqPowerup * 0.004)));
+        const powerupok = this.palya.egyediPoziciok(powerupDarab, [...ures, ...dobozok, ...vizek, ...biztonsagos]);
 
         this.palya.objektumokatHozzaad(dobozok, 'doboz');
+        this.palya.objektumokatHozzaad(vizek, 'viz');
         this.palya.objektumokatHozzaad(powerupok, 'powerup');
         this.osszesJatekos().forEach((jatekos, idx) => this.palya.jatekosRajzol(jatekos, `jatekos${idx + 1}`));
 
         this.frissitJatekosPanelok();
+        this.inditVeszelyZonaAlapIdozito();
         if (this.idokorlathoz > 0) this.inditIdozito();
     }
 
@@ -409,7 +509,10 @@ class Main {
             j3: this.serializePlayer(this.jatekos3),
             j4: this.serializePlayer(this.jatekos4),
             cells: this.jatekAktiv && this.palya.tabla.length ? this.tablaState() : [],
-            gameOpacity: document.getElementById('jatekter').style.opacity || '1'
+            gameOpacity: document.getElementById('jatekter').style.opacity || '1',
+            gameOverText: this.gameOverText || '',
+            dangerLevel: this.palya.veszelySzint || 0,
+            dangerActive: !!this.palya.veszelyInterval
         };
     }
 
@@ -418,7 +521,10 @@ class Main {
             x: j.x, y: j.y, pont: j.pont,
             pirosElet: j.pirosElet, kekElet: j.kekElet,
             sebesseg: j.sebesseg, nagyrobbanas: j.nagyrobbanas,
-            powerupAllapot: j.powerupAllapot
+            powerupAllapot: j.powerupAllapot,
+            powerupPopup: j.powerupPopup || '',
+            powerupOpacity: j.powerupOpacity || 0,
+            karakterKod: j.karakterKod || '0'
         };
     }
 
@@ -456,7 +562,7 @@ class Main {
         this.setActivePlayers(state.activePlayers || 2);
 
         if (state.sorok !== this.sorok || state.oszlopok !== this.oszlopok) {
-            this.frissitTablaMeret(state.sorok <= 8 ? 'kicsi' : state.sorok >= 24 ? 'nagy' : 'kozepes');
+            this.frissitTablaMeret(state.sorok <= 15 ? 'kicsi' : state.sorok >= 30 ? 'nagy' : 'kozepes');
             this.palya.tablaLetrehoz();
             this.utolsoRemoteCells = [];
             this.palya.beallitJatekosok(this.players);
@@ -490,12 +596,21 @@ class Main {
         this.osszesJatekos().forEach((jatekos, idx) => this.palya.jatekosRajzol(jatekos, `jatekos${idx + 1}`));
         this.frissitJatekosPanelok();
         document.getElementById('jatekter').style.opacity = state.gameOpacity || '1';
+        this.palya.veszelySzint = Math.max(0, Number(state.dangerLevel) || 0);
+        document.body.style.background = state.dangerActive || this.palya.veszelySzint > 0 ? '#080808' : '';
         this.palya.render();
 
         this.jatekAktiv = !!state.jatekAktiv;
-        if (!this.jatekAktiv) return;
+        this.gameOverText = state.gameOverText || '';
+        if (!this.jatekAktiv) {
+            if (this.gameOverText) this.megjelenitJatekVegeAblak(this.gameOverText);
+            return;
+        }
+        this.eltuntetJatekVegeAblak();
         document.getElementById('menu').style.display = 'none';
         document.getElementById('focim').style.display = 'none';
+        const eye = document.querySelector('.eye');
+        if (eye) eye.style.display = 'none';
         const gyik = document.getElementById('gyik-doboz');
         if (gyik) gyik.style.display = 'none';
         document.getElementById('oldal-bal').classList.remove('rejtett');
@@ -515,6 +630,14 @@ class Main {
     frissitJatekosPanelok() {
         this.osszesJatekos().forEach((jatekos, idx) => {
             this.frissitSzivek(`szivek-${idx + 1}`, jatekos);
+            this.frissitAktivErositesek(`erositesek-${idx + 1}`, jatekos);
+            const panel = document.getElementById(`panel-${idx + 1}`);
+            const cim = panel?.querySelector('h3');
+            if (cim) {
+                const karakterKod = jatekos.karakterKod || this.karakterKodByIndex(idx);
+                const karakterNev = KARAKTER_CIMEK[karakterKod] || KARAKTER_CIMEK['0'];
+                cim.textContent = `${jatekos.nev} · ${karakterNev}`;
+            }
         });
 
         [1, 2, 3, 4].forEach((idx) => {
@@ -530,14 +653,15 @@ class Main {
         if (!kontener) return;
 
         kontener.innerHTML = '';
-        for (let i = 0; i < 3; i++) {
+        const maxSziv = 6;
+        for (let i = 0; i < maxSziv; i++) {
             const sziv = document.createElement('span');
             sziv.className = 'sziv';
 
-            if (i < jatekos.kekElet) {
+            if (i < (jatekos.kekElet || 0)) {
                 sziv.textContent = '♥';
                 sziv.classList.add('kek');
-            } else if (i < jatekos.pirosElet) {
+            } else if (i < (jatekos.kekElet || 0) + (jatekos.pirosElet || 0)) {
                 sziv.textContent = '♥';
                 sziv.classList.add('piros');
             } else {
@@ -546,6 +670,18 @@ class Main {
             }
             kontener.appendChild(sziv);
         }
+    }
+
+
+    frissitAktivErositesek(elemId, jatekos) {
+        const kontener = document.getElementById(elemId);
+        if (!kontener) return;
+
+        const aktivak = Object.entries(jatekos.powerupAllapot || {})
+            .filter(([, aktiv]) => !!aktiv)
+            .map(([kulcs]) => POWERUP_LABELS[kulcs] || kulcs);
+
+        kontener.textContent = aktivak.length > 0 ? `Erősítések: ${aktivak.join(', ')}` : 'Erősítések: -';
     }
 
 
@@ -606,18 +742,46 @@ class Main {
 
         if (!elem) return;
         elem.textContent = szoveg;
-        elem.style.opacity = '0.35';
+        elem.style.opacity = '1';
     }
 
     jatekVege(nyertes) {
         this.jatekAktiv = false;
+        this.gameOverText = `${nyertes} nyert!`;
+        this.megjelenitJatekVegeAblak(this.gameOverText);
+        this.megallitIdozito();
+        this.megallitVeszelyZonaAlapIdozito();
+        document.getElementById('jatekter').style.opacity = '0.2';
+    }
+
+    megjelenitJatekVegeAblak(szoveg) {
+        this.eltuntetJatekVegeAblak();
         const vegeAblak = document.createElement('div');
         vegeAblak.classList.add('jatekvegekepernyo');
-        vegeAblak.innerHTML = `<h2>${nyertes} nyert!</h2><button id="ujrainditas">Új játék</button>`;
+        vegeAblak.id = 'jatekvege-ablak';
+        vegeAblak.innerHTML = `<h2>${szoveg}</h2><button id="ujrainditas">Új játék</button>`;
         document.body.appendChild(vegeAblak);
         document.getElementById('ujrainditas').addEventListener('click', () => location.reload());
-        this.megallitIdozito();
-        document.getElementById('jatekter').style.opacity = '0.2';
+    }
+
+    eltuntetJatekVegeAblak() {
+        const ablak = document.getElementById('jatekvege-ablak');
+        if (ablak) ablak.remove();
+    }
+
+
+    inditVeszelyZonaAlapIdozito() {
+        if (this.veszelyStartIdozito) clearTimeout(this.veszelyStartIdozito);
+        this.veszelyStartIdozito = setTimeout(() => {
+            this.palya.idovegeEffekt();
+        }, 20000);
+    }
+
+    megallitVeszelyZonaAlapIdozito() {
+        if (this.veszelyStartIdozito) {
+            clearTimeout(this.veszelyStartIdozito);
+            this.veszelyStartIdozito = null;
+        }
     }
 
     inditIdozito() {

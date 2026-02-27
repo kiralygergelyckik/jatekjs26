@@ -1,4 +1,4 @@
-const POWERUPOK = ['nagyrobbanas', 'pluszelet', 'gyorsito', 'furo', 'pajzs', 'arnyek', 'mega'];
+const POWERUPOK = ['nagyrobbanas', 'pluszelet', 'gyorsito', 'furo', 'pajzs', 'arnyek', 'uszas', 'latoszog', 'bomba', 'mega'];
 
 export class Erositesek {
     constructor(main) {
@@ -15,10 +15,12 @@ export class Erositesek {
                 jatekos.powerupAllapot.nagyrobbanas = true;
                 this.main.mutatPowerupUzenet(jatekos, 'Nagyrobbanás');
                 break;
-            case 'pluszelet':
-                jatekos.kekElet = Math.min(3, jatekos.kekElet + 1);
+            case 'pluszelet': {
+                const total = (jatekos.pirosElet || 0) + (jatekos.kekElet || 0);
+                if (total < 6) jatekos.kekElet = Math.min(6 - (jatekos.pirosElet || 0), (jatekos.kekElet || 0) + 1);
                 this.main.mutatPowerupUzenet(jatekos, 'Plusz élet');
                 break;
+            }
             case 'gyorsito':
                 jatekos.regisebesseg = jatekos.sebesseg;
                 jatekos.sebesseg = Math.max(90, jatekos.sebesseg - 100);
@@ -48,6 +50,28 @@ export class Erositesek {
                     jatekos.powerupAllapot.arnyek = false;
                     this.main.frissitJatekosPanelok();
                 }, 10000);
+                break;
+            case 'uszas':
+                jatekos.uszasVege = Date.now() + 10000;
+                jatekos.powerupAllapot.uszas = true;
+                this.main.mutatPowerupUzenet(jatekos, 'Úszás (10s)');
+                setTimeout(() => {
+                    jatekos.powerupAllapot.uszas = false;
+                    this.main.frissitJatekosPanelok();
+                }, 10000);
+                break;
+            case 'latoszog':
+                jatekos.latoszogVege = Date.now() + 10000;
+                jatekos.powerupAllapot.latoszog = true;
+                this.main.mutatPowerupUzenet(jatekos, 'Látószög 7x7 (10s)');
+                setTimeout(() => {
+                    jatekos.powerupAllapot.latoszog = false;
+                    this.main.frissitJatekosPanelok();
+                }, 10000);
+                break;
+            case 'bomba':
+                jatekos.idozitettBomba(this.main, x, y, false);
+                this.main.mutatPowerupUzenet(jatekos, 'Bomba');
                 break;
             case 'mega':
                 jatekos.powerupAllapot.mega = true;

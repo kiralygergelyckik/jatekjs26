@@ -47,7 +47,7 @@ export class NetworkManager {
             if (this.role === 'host') {
                 this.connectedPeers = 0;
                 this.main.setActivePlayers(2);
-                this.snapshotInterval = setInterval(() => this.sendState(), 90);
+                this.snapshotInterval = setInterval(() => this.sendState(), 50);
             }
             return;
         }
@@ -118,11 +118,22 @@ export class NetworkManager {
         this.sendRelay({ kind: 'bomb' });
     }
 
+    cellChecksum(cells = []) {
+        let sum = 0;
+        for (let i = 0; i < cells.length; i++) {
+            const row = cells[i] || [];
+            for (let j = 0; j < row.length; j++) {
+                sum = (sum + ((Number(row[j]) || 0) * (i + 1) * (j + 1))) % 1000000007;
+            }
+        }
+        return sum;
+    }
+
     sendState() {
         if (this.role !== 'host' || !this.remoteConnected) return;
-        if (!this.main.jatekAktiv || !this.main.palya?.tabla?.length) return;
+        if (!this.main.palya?.tabla?.length) return;
         const state = this.main.captureState();
-        const sig = `${state.activePlayers}|${state.j1.x},${state.j1.y},${state.j1.pont}|${state.j2.x},${state.j2.y},${state.j2.pont}|${state.j3.x},${state.j3.y},${state.j3.pont}|${state.j4.x},${state.j4.y},${state.j4.pont}|${state.cells?.length || 0}`;
+        const sig = `${state.jatekAktiv ? 1 : 0}|${state.gameOverText || ''}|${state.dangerLevel || 0}|${state.dangerActive ? 1 : 0}|${state.activePlayers}|${state.j1.x},${state.j1.y},${state.j1.pont},${state.j1.karakterKod || '0'}|${state.j2.x},${state.j2.y},${state.j2.pont},${state.j2.karakterKod || '0'}|${state.j3.x},${state.j3.y},${state.j3.pont},${state.j3.karakterKod || '0'}|${state.j4.x},${state.j4.y},${state.j4.pont},${state.j4.karakterKod || '0'}|${this.cellChecksum(state.cells)}`;
         if (sig === this.lastStateSig) return;
         this.lastStateSig = sig;
         this.sendRelay({ kind: 'state', state });

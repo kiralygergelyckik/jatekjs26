@@ -69,7 +69,7 @@ export class Palya {
 
     resizeCanvas() {
         if (!this.canvas) return;
-        const meret = this.sorok <= 8 ? 78 : this.sorok >= 24 ? 30 : 48;
+        const meret = this.sorok <= 15 ? 46 : this.sorok >= 30 ? 24 : 30;
         const width = this.oszlopok * meret;
         const height = this.sorok * meret;
         this.canvas.width = width;
@@ -117,6 +117,7 @@ export class Palya {
         if (x < 0 || x >= this.sorok || y < 0 || y >= this.oszlopok) return false;
         if (this.tabla[x][y].classList.contains('bomba')) return false;
         if (this.tabla[x][y].classList.contains('doboz') && !(jatekos && jatekos.arnyekAktiv())) return false;
+        if (this.tabla[x][y].classList.contains('viz') && !(jatekos && jatekos.uszasAktiv())) return false;
         return true;
     }
 
@@ -155,7 +156,16 @@ export class Palya {
         }
     }
 
+    resetVeszelyZona() {
+        this.veszelySzint = 0;
+        if (this.veszelyInterval) {
+            clearInterval(this.veszelyInterval);
+            this.veszelyInterval = null;
+        }
+    }
+
     idovegeEffekt() {
+        if (this.veszelyInterval) return;
         const kijelzo = document.getElementById('timeDisplay');
         if (kijelzo) {
             kijelzo.innerText = '⏱ Lejárt az idő! A pálya szűkül...';
@@ -167,6 +177,7 @@ export class Palya {
             this.veszelySzint += 1;
             if (this.sorok - this.veszelySzint * 2 < 3) {
                 clearInterval(this.veszelyInterval);
+                this.veszelyInterval = null;
                 return;
             }
             this.alkalmazVeszelyZona(this.veszelySzint);
@@ -195,13 +206,7 @@ export class Palya {
 
         jatekos.veszelybenToltottIdo = 0;
 
-        if (jatekos.kekElet > 0) {
-            jatekos.sebezodik(this.main);
-            return;
-        }
-
-        jatekos.pirosElet = 0;
-        jatekos.jatekosHal(this.main);
+        jatekos.sebezodik(this.main);
     }
 
     render() {
@@ -210,61 +215,74 @@ export class Palya {
         const t = Date.now() / 1000;
         const cw = this.canvas.width;
         const ch = this.canvas.height;
-        const cellW = cw / this.oszlopok;
-        const cellH = ch / this.sorok;
+        const latoKozep = this.main.getLathatoKozep();
+        const latoszogAktiv = !!latoKozep;
+        const view = latoszogAktiv ? (this.main.getLatoszogMeret() || 6) : this.sorok;
+        const startX = latoszogAktiv ? Math.max(0, Math.min(this.sorok - view, latoKozep.x - 2)) : 0;
+        const startY = latoszogAktiv ? Math.max(0, Math.min(this.oszlopok - view, latoKozep.y - 2)) : 0;
+        const endX = latoszogAktiv ? Math.min(this.sorok - 1, startX + view - 1) : this.sorok - 1;
+        const endY = latoszogAktiv ? Math.min(this.oszlopok - 1, startY + view - 1) : this.oszlopok - 1;
+        const visibleRows = endX - startX + 1;
+        const visibleCols = endY - startY + 1;
+        const cellW = cw / visibleCols;
+        const cellH = ch / visibleRows;
 
-        ctx.fillStyle = '#f6f6f6';
+        ctx.fillStyle = '#101010';
         ctx.fillRect(0, 0, cw, ch);
 
-        for (let i = 0; i < this.sorok; i++) {
-            for (let j = 0; j < this.oszlopok; j++) {
-                const x = j * cellW;
-                const y = i * cellH;
+        for (let i = startX; i <= endX; i++) {
+            for (let j = startY; j <= endY; j++) {
+                const x = (j - startY) * cellW;
+                const y = (i - startX) * cellH;
                 const cella = this.tabla[i][j];
-                this.drawSketchCell(ctx, x, y, cellW, cellH, i, j, t);
+                this.drawSketchCell(ctx, x, y, cellW, cellH);
 
-                if (cella.classList.contains('doboz')) this.drawDoboz(ctx, x, y, cellW, cellH, t);
+                if (cella.classList.contains('doboz')) this.drawDoboz(ctx, x, y, cellW, cellH);
+                if (cella.classList.contains('viz')) this.drawViz(ctx, x, y, cellW, cellH, t);
                 if (cella.classList.contains('powerup')) this.drawPowerup(ctx, x, y, cellW, cellH, t);
                 if (cella.classList.contains('bomba')) this.drawBomba(ctx, x, y, cellW, cellH, t);
-                if (cella.classList.contains('perzseles')) this.drawPerzseles(ctx, x, y, cellW, cellH, t);
+                if (cella.classList.contains('perzseles')) this.drawPerzseles(ctx, x, y, cellW, cellH);
                 if (cella.classList.contains('veszelyzona')) this.drawVeszely(ctx, x, y, cellW, cellH, t);
             }
         }
 
         const szinek = ['#b8382f', '#2a5caa', '#ad8a1f', '#2e7d4d'];
         this.main.osszesJatekos().forEach((jatekos, idx) => {
-            this.drawPlayer(ctx, jatekos, szinek[idx % szinek.length], cellW, cellH, t + idx * 0.6);
+            const lathato = !latoszogAktiv || (jatekos.x >= startX && jatekos.x <= endX && jatekos.y >= startY && jatekos.y <= endY);
+            if (!lathato) return;
+            const rajzJatekos = {
+                ...jatekos,
+                x: jatekos.x - startX,
+                y: jatekos.y - startY
+            };
+            this.drawPlayer(ctx, rajzJatekos, szinek[idx % szinek.length], cellW, cellH, t + idx * 0.6);
         });
     }
 
-    drawSketchCell(ctx, x, y, w, h, i, j, t) {
-        const jitter = Math.sin(t * 2 + i * 0.4 + j * 0.3) * 1.8;
-        ctx.strokeStyle = '#0f0f0f';
-        ctx.lineWidth = 1 + Math.abs(Math.sin(t + i + j)) * 1.4;
-        ctx.beginPath();
-        ctx.moveTo(x + 2 + jitter, y + 2);
-        ctx.lineTo(x + w - 3, y + 2 - jitter * 0.3);
-        ctx.lineTo(x + w - 2 - jitter, y + h - 2);
-        ctx.lineTo(x + 2, y + h - 2 + jitter * 0.2);
-        ctx.closePath();
-        ctx.stroke();
-
-        const hatch = 2 + Math.sin(t * 3 + i + j) * 1.5;
-        ctx.strokeStyle = 'rgba(20,20,20,0.15)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x + 4, y + h / 2 + hatch);
-        ctx.lineTo(x + w - 4, y + h / 2 - hatch);
-        ctx.stroke();
+    drawSketchCell(ctx, x, y, w, h) {
+        ctx.fillStyle = '#3b7d2d';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = 'rgba(16,40,12,0.45)';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
     }
 
-    drawDoboz(ctx, x, y, w, h, t) {
-        const wobble = Math.sin(t * 4 + x * 0.02 + y * 0.03) * 1.2;
-        ctx.fillStyle = '#e6e6e6';
-        ctx.fillRect(x + 6 + wobble, y + 6, w - 12, h - 12);
-        ctx.strokeStyle = '#0f0f0f';
-        ctx.lineWidth = 2.4;
-        ctx.strokeRect(x + 6 + wobble, y + 6, w - 12, h - 12);
+    drawDoboz(ctx, x, y, w, h) {
+        ctx.fillStyle = '#8b5a2b';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.strokeStyle = '#5c3a1a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+    }
+
+    drawViz(ctx, x, y, w, h, t) {
+        ctx.fillStyle = `rgba(40,110,190,${0.7 + Math.sin(t * 2) * 0.1})`;
+        ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+        ctx.strokeStyle = 'rgba(170,210,255,0.7)';
+        ctx.beginPath();
+        ctx.moveTo(x + 3, y + h * 0.4);
+        ctx.lineTo(x + w - 3, y + h * 0.5);
+        ctx.stroke();
     }
 
     drawPowerup(ctx, x, y, w, h, t) {
@@ -299,12 +317,12 @@ export class Palya {
         ctx.stroke();
     }
 
-    drawPerzseles(ctx, x, y, w, h, t) {
-        ctx.strokeStyle = `rgba(40,40,40,${0.4 + Math.sin(t * 5) * 0.2})`;
-        ctx.lineWidth = 3;
+    drawPerzseles(ctx, x, y, w, h) {
+        ctx.strokeStyle = '#9e9e9e';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(x + 8, y + h - 8);
-        ctx.lineTo(x + w - 8, y + 8);
+        ctx.moveTo(x + 4, y + h - 4);
+        ctx.lineTo(x + w - 4, y + 4);
         ctx.stroke();
     }
 
@@ -338,30 +356,31 @@ export class Palya {
         ctx.lineTo(cx + cellW * 0.14, cy + cellH * 0.08);
         ctx.stroke();
 
+
         if (jatekos.powerupPopup && jatekos.powerupOpacity > 0) {
-            const textY = y + cellH * 0.14;
-            const fontSize = Math.max(12, Math.floor(cellW * 0.24));
+            const txtY = y + cellH * 0.12;
+            const txt = jatekos.powerupPopup.toUpperCase();
             ctx.save();
-            ctx.globalAlpha = jatekos.powerupOpacity;
-            ctx.font = `bold ${fontSize}px Georgia, serif`;
+            ctx.globalAlpha = Math.max(0.2, jatekos.powerupOpacity);
+            ctx.font = `bold ${Math.max(12, Math.floor(cellW * 0.24))}px Georgia, serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            const metrics = ctx.measureText(jatekos.powerupPopup);
-            const padX = 8;
-            const boxW = metrics.width + padX * 2;
-            const boxH = fontSize + 8;
+            const m = ctx.measureText(txt);
+            const pad = 6;
+            const bw = m.width + pad * 2;
+            const bh = Math.max(16, Math.floor(cellH * 0.24));
 
-            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.2;
             ctx.beginPath();
-            ctx.rect(cx - boxW / 2, textY - boxH / 2, boxW, boxH);
+            ctx.rect(cx - bw / 2, txtY - bh / 2, bw, bh);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = '#000';
-            ctx.fillText(jatekos.powerupPopup, cx, textY + 1);
+            ctx.fillText(txt, cx, txtY + 1);
             ctx.restore();
         }
     }

@@ -5,8 +5,12 @@ export class Jatekos {
         this.y = y;
         this.pont = 0;
 
-        this.pirosElet = 3;
+        this.alapPirosElet = 3;
+        this.pirosElet = this.alapPirosElet || 3;
         this.kekElet = 0;
+        this.uszasVege = 0;
+        this.latoszogVege = 0;
+        this.halottEppen = false;
 
         this.utolsoMozgas = 0;
         this.bombaAktiv = false;
@@ -34,6 +38,8 @@ export class Jatekos {
             furo: false,
             pajzs: false,
             arnyek: false,
+            uszas: false,
+            latoszog: false,
             mega: false
         };
     }
@@ -46,11 +52,18 @@ export class Jatekos {
         return Date.now() < this.arnyekVege;
     }
 
+    uszasAktiv() {
+        return this.uszo || Date.now() < this.uszasVege;
+    }
+
     resetPozicio(x, y) {
         this.x = x;
         this.y = y;
-        this.pirosElet = 3;
+        this.pirosElet = this.alapPirosElet || 3;
         this.kekElet = 0;
+        this.uszasVege = 0;
+        this.latoszogVege = 0;
+        this.halottEppen = false;
         this.sebesseg = this.alapsebesseg || 250;
         this.sebezhetetlen = true;
         this.pajzsVege = 0;
@@ -66,6 +79,8 @@ export class Jatekos {
             furo: false,
             pajzs: false,
             arnyek: false,
+            uszas: false,
+            latoszog: false,
             mega: false
         };
     }
@@ -146,13 +161,15 @@ export class Jatekos {
             if (ujX < 0 || ujX >= main.sorok || ujY < 0 || ujY >= main.oszlopok) return;
 
             const cella = main.palya.cella(ujX, ujY);
-            if (cella.classList.contains('doboz')) {
-                cella.classList.remove('doboz');
-                szetmentFalak.push({ x: ujX, y: ujY });
-            }
+            // if (cella.classList.contains('doboz')) {
+            //     cella.classList.remove('doboz');
+            //     cella.classList.add('perzseles');
+            //     szetmentFalak.push({ x: ujX, y: ujY });
+            // }
             cella.classList.remove('powerup');
+            cella.classList.remove('doboz');
+            if(!cella.classList.contains('viz'))
             cella.classList.add('perzseles');
-
             robbanasiPontok.push({ x: ujX, y: ujY });
         });
 
@@ -218,7 +235,7 @@ export class Jatekos {
         }
 
         this.pirosElet -= 1;
-        if (this.pirosElet > 0) {
+        if (this.pirosElet + this.kekElet > 0) {
             main.frissitJatekosPanelok();
             return;
         }
@@ -227,6 +244,8 @@ export class Jatekos {
     }
 
     jatekosHal(main) {
+        if (this.halottEppen) return;
+        this.halottEppen = true;
         const halalX = this.x;
         const halalY = this.y;
 
@@ -250,9 +269,10 @@ export class Jatekos {
         main.palya.jatekosRajzol(this, `jatekos${idx + 1}`);
         setTimeout(() => {
             this.sebezhetetlen = false;
+            this.halottEppen = false;
         }, 1000);
 
         main.frissitJatekosPanelok();
         main.ellenorizGyozelem();
     }
-}   
+}
